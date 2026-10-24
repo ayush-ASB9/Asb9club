@@ -1,0 +1,35 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "asb9-application-api",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-10-24",
+  "workers_dev": true,
+  "secrets": {
+    "required": ["RESEND_API_KEY"]
+  },
+  "vars": {
+    "ALLOWED_ORIGIN": "https://asb9.club",
+    "RESEND_FROM_EMAIL": "ASB9 CLUB <applications@asb9.club>"
+  },
+  "ratelimits": [
+    {
+      "name": "SUBMISSION_LIMITER",
+      "namespace_id": "8472091",
+      "simple": {
+        "limit": 5,
+        "period": 60
+      }
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1
+    },
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 0.01
+    }
+  }
+}

@@ -102,10 +102,16 @@ button { border: 0; }
 .application-form input, .application-form textarea { border: 0; border-bottom: 1px solid rgba(10,10,9,.35); border-radius: 0; background: transparent; padding: 10px 0 16px; outline: 0; resize: none; font-size: 14px; }
 .application-form input:focus, .application-form textarea:focus { border-color: var(--black); }
 .application-form ::placeholder { color: #77766f; }
+.application-form input:disabled, .application-form textarea:disabled { opacity: .65; }
 .wide { grid-column: 1 / -1; }
+.application-honeypot { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+.privacy-note, .submission-error { grid-column: 1 / -1; margin: 0; font-size: 11px; line-height: 1.6; }
+.privacy-note { color: #77766f; }
+.submission-error { color: #9c3025; }
 .submit { grid-column: 1 / -1; background: var(--black); display: flex; justify-content: space-between; padding: 24px 28px; margin-top: 14px; cursor: none; }
+.submit:disabled { opacity: .7; cursor: wait; }
 .submit b { font-size: 22px; font-weight: 300; transition: transform .2s; }
-.submit:hover b { transform: translate(5px, -5px); }
+.submit:not(:disabled):hover b { transform: translate(5px, -5px); }
 .success { align-self: center; text-align: center; }
 .success .mark { fill: var(--black); }
 .success h2 { font: italic 300 58px var(--serif); margin-bottom: 5px; }

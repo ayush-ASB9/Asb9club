@@ -31,9 +31,13 @@ function App() {
   const [activePath, setActivePath] = useState(0)
   const [activeNode, setActiveNode] = useState(2)
   const [cursor, setCursor] = useState({ x: -40, y: -40, active: false })
-  const [submitted, setSubmitted] = useState(false)
+  const [submissionState, setSubmissionState] = useState<'idle' | 'submitting' | 'error' | 'success'>('idle')
+  const [submissionMessage, setSubmissionMessage] = useState('')
   const [hold, setHold] = useState(0)
   const holdTimer = useRef<number | null>(null)
+  const submissionLock = useRef(false)
+  const idempotencyKey = useRef<string | null>(null)
+  const lastSubmission = useRef<string | null>(null)
 
   useEffect(() => {
     const move = (event: PointerEvent) => setCursor((c) => ({ ...c, x: event.clientX, y: event.clientY }))
@@ -78,9 +82,64 @@ function App() {
     if (hold < 100) setHold(0)
   }
 
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    setSubmitted(true)
+    if (submissionLock.current) return
+    submissionLock.current = true
+    setSubmissionState('submitting')
+    setSubmissionMessage('')
+
+    const apiUrl = import.meta.env.VITE_APPLICATION_API_URL
+    if (!apiUrl) {
+      setSubmissionState('error')
+      setSubmissionMessage('The application service is not configured yet. Please try again later.')
+      submissionLock.current = false
+      return
+    }
+
+    const formData = new FormData(event.currentTarget)
+    const requestBody = JSON.stringify({
+      name: formData.get('name'),
+      email: formData.get('email'),
+      signal: formData.get('signal'),
+      contribution: formData.get('contribution'),
+      website: formData.get('website'),
+    })
+
+    try {
+      if (!idempotencyKey.current || lastSubmission.current !== requestBody) {
+        idempotencyKey.current = crypto.randomUUID()
+        lastSubmission.current = requestBody
+      }
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey.current,
+        },
+        body: requestBody,
+      })
+      const result: { ok?: boolean } = await response.json()
+
+      if (!response.ok || result.ok !== true) {
+        setSubmissionState('error')
+        setSubmissionMessage(
+          response.status === 429
+            ? 'Too many attempts from this connection. Please wait a minute and try again.'
+            : response.status === 400 || response.status === 413
+              ? 'Please check your application details and try again.'
+              : 'We could not confirm delivery. Please try again in a moment.',
+        )
+        return
+      }
+
+      setSubmissionState('success')
+    } catch {
+      setSubmissionState('error')
+      setSubmissionMessage('We could not reach the application service. Please check your connection and try again.')
+    } finally {
+      submissionLock.current = false
+    }
   }
 
   return (
@@ -177,15 +236,22 @@ function App() {
           <h2>The door is<br /><em>not hidden.</em></h2>
           <p>It simply asks that you arrive as yourself. Tell us what has your attention and what you want to make possible.</p>
         </div>
-        {submitted ? (
-          <div className="success" role="status"><Mark small /><h2>Signal received.</h2><p>Thank you. Your note is ready for review.</p></div>
+        {submissionState === 'success' ? (
+          <div className="success" role="status"><Mark small /><h2>Signal received.</h2><p>Thank you. Your note has been sent for review.</p></div>
         ) : (
-          <form className="application-form reveal" onSubmit={submit}>
-            <label><span>Your name</span><input required name="name" autoComplete="name" placeholder="First and last" /></label>
-            <label><span>Your email</span><input required type="email" name="email" autoComplete="email" placeholder="you@somewhere.com" /></label>
-            <label className="wide"><span>What are you working on—or unable to stop thinking about?</span><textarea required name="signal" rows={3} placeholder="Tell us plainly. Links are welcome." /></label>
-            <label className="wide"><span>What would you contribute to the room?</span><textarea required name="contribution" rows={3} placeholder="A skill, instinct, question or unfinished idea." /></label>
-            <button className="submit" type="submit"><span>Send your signal</span><b>↗</b></button>
+          <form className="application-form reveal" onSubmit={submit} aria-busy={submissionState === 'submitting'}>
+            <label><span>Your name</span><input required name="name" autoComplete="name" placeholder="First and last" disabled={submissionState === 'submitting'} /></label>
+            <label><span>Your email</span><input required type="email" name="email" autoComplete="email" placeholder="you@somewhere.com" disabled={submissionState === 'submitting'} /></label>
+            <label className="wide"><span>What are you working on—or unable to stop thinking about?</span><textarea required name="signal" rows={3} placeholder="Tell us plainly. Links are welcome." disabled={submissionState === 'submitting'} /></label>
+            <label className="wide"><span>What would you contribute to the room?</span><textarea required name="contribution" rows={3} placeholder="A skill, instinct, question or unfinished idea." disabled={submissionState === 'submitting'} /></label>
+            <div className="application-honeypot" aria-hidden="true">
+              <label>Leave this field empty<input name="website" tabIndex={-1} autoComplete="off" /></label>
+            </div>
+            {submissionState === 'error' && <p className="submission-error" role="alert">{submissionMessage}</p>}
+            <p className="privacy-note">Your information will only be used to review your membership application.</p>
+            <button className="submit" type="submit" disabled={submissionState === 'submitting'}>
+              <span>{submissionState === 'submitting' ? 'Sending your signal…' : 'Send your signal'}</span><b>↗</b>
+            </button>
           </form>
         )}
       </section>
