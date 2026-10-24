@@ -1,0 +1,10 @@
+{
+  "description": "Explore ASB9 Club, a selective community for young builders, founders, developers, and researchers to discover shared interests, connect, and apply to join.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
